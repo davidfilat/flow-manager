@@ -21,7 +21,14 @@ class RegisterFlowResponse(BaseModel):
     name: str
 
 
-class RunFlowResponse(BaseModel):
+class RunStartedResponse(BaseModel):
+    run_id: str
+    flow_id: str
+    status: RunStatus = RunStatus.RUNNING
+
+
+class RunStatusResponse(BaseModel):
+    run_id: str
     flow_id: str
     status: RunStatus
     outputs: dict[str, Any]

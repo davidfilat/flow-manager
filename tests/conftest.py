@@ -1,13 +1,18 @@
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 
 from flow_manager_task import api
 from flow_manager_task.models import FlowDefinition
 from flow_manager_task.service import FlowService
+
+
+@pytest.fixture
+def anyio_backend() -> str:
+    return "asyncio"
 
 
 @pytest.fixture
@@ -53,8 +58,9 @@ def flow_definition(flow_payload: dict) -> FlowDefinition:
 
 
 @pytest.fixture
-def api_client(flow_definition: FlowDefinition) -> Generator[TestClient, None, None]:
+async def api_client() -> AsyncGenerator[AsyncClient, None]:
     service = FlowService()
     api.app.dependency_overrides[api.get_service] = lambda: service
-    yield TestClient(api.app)
+    async with AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as client:
+        yield client
     api.app.dependency_overrides.clear()

@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class RunStatus(StrEnum):
+    RUNNING = "RUNNING"
     END_SUCCESS = "END_SUCCESS"
     END_FAILED = "END_FAILED"
 

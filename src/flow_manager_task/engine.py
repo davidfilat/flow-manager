@@ -7,6 +7,10 @@ from typing import Any, Protocol, runtime_checkable
 from .models import FlowDefinition, RunStatus, TaskDefinition
 
 
+class UnregisteredTaskError(ValueError):
+    pass
+
+
 class EventType:
     TASK_SUCCEEDED = "TASK_SUCCEEDED"
     TASK_FAILED = "TASK_FAILED"
@@ -33,7 +37,10 @@ class TaskExecutionResult:
 
 
 def _default_handler(task: TaskDefinition, context: dict[str, Any]) -> TaskExecutionResult:
-    return TaskExecutionResult(success=True, output={"task": task.name})
+    return TaskExecutionResult(
+        success=False,
+        error=f"no handler registered for task '{task.name}'",
+    )
 
 
 class TaskRunner:
@@ -50,6 +57,11 @@ class TaskRunner:
 
     def register(self, task_name: str, fn: TaskHandler) -> None:
         self._registry[task_name] = fn
+
+    def validate_handlers(self, flow: FlowDefinition) -> None:
+        missing = [task.name for task in flow.tasks if task.name not in self._registry]
+        if missing:
+            raise UnregisteredTaskError(f"no handler registered for tasks: {', '.join(missing)}")
 
     def execute(self, task: TaskDefinition, context: dict[str, Any]) -> TaskExecutionResult:
         return self._registry.get(task.name, _default_handler)(task, context)

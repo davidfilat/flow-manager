@@ -14,10 +14,12 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "anyio[trio]>=4.9.0",
     "httpx>=0.28.1",
     "mypy>=1.18.2",
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",
+    "pytest-anyio>=0.0.0",
     "pytest-cov>=7.0.0",
     "ruff>=0.13.0",
 ]
@@ -50,6 +52,7 @@ show_error_codes = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=flow_manager_task --cov-report=term-missing"
+anyio_mode = "auto"
 
 [build-system]
 requires = ["uv_build>=0.10.8,<0.11.0"]
