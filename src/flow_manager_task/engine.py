@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
@@ -31,47 +32,51 @@ class TaskExecutionResult:
     error: str | None = None
 
 
+def _default_handler(task: TaskDefinition, context: dict[str, Any]) -> TaskExecutionResult:
+    return TaskExecutionResult(success=True, output={"task": task.name})
+
+
 class TaskRunner:
     def __init__(self) -> None:
-        self._registry: dict[str, TaskHandler] = {
-            "task1": self._task_fetch_data,
-            "task2": self._task_process_data,
-            "task3": self._task_store_data,
-        }
+        self._registry: dict[str, TaskHandler] = {}
+        self._register_defaults()
 
-    def register(self, task_name: str, handler: TaskHandler) -> None:
-        self._registry[task_name] = handler
+    def handler(self, task_name: str) -> Callable[[TaskHandler], TaskHandler]:
+        def decorator(fn: TaskHandler) -> TaskHandler:
+            self._registry[task_name] = fn
+            return fn
+
+        return decorator
+
+    def register(self, task_name: str, fn: TaskHandler) -> None:
+        self._registry[task_name] = fn
 
     def execute(self, task: TaskDefinition, context: dict[str, Any]) -> TaskExecutionResult:
-        handler = self._registry.get(task.name, self._task_default)
-        return handler(task, context)
+        return self._registry.get(task.name, _default_handler)(task, context)
 
-    def _task_fetch_data(
-        self, task: TaskDefinition, context: dict[str, Any]
-    ) -> TaskExecutionResult:
-        source = context.get("source", "sample-source")
-        payload = {"records": [1, 2, 3], "source": source}
-        return TaskExecutionResult(success=True, output={"task": task.name, "data": payload})
+    def _register_defaults(self) -> None:
+        @self.handler("task1")
+        def fetch_data(task: TaskDefinition, context: dict[str, Any]) -> TaskExecutionResult:
+            source = context.get("source", "sample-source")
+            payload = {"records": [1, 2, 3], "source": source}
+            return TaskExecutionResult(success=True, output={"task": task.name, "data": payload})
 
-    def _task_process_data(
-        self, task: TaskDefinition, context: dict[str, Any]
-    ) -> TaskExecutionResult:
-        fetched = context.get("outputs", {}).get("task1", {}).get("data", {})
-        records = fetched.get("records", [])
-        processed = [value * 2 for value in records]
-        return TaskExecutionResult(success=True, output={"task": task.name, "processed": processed})
+        @self.handler("task2")
+        def process_data(task: TaskDefinition, context: dict[str, Any]) -> TaskExecutionResult:
+            fetched = context.get("outputs", {}).get("task1", {}).get("data", {})
+            records = fetched.get("records", [])
+            processed = [value * 2 for value in records]
+            return TaskExecutionResult(
+                success=True, output={"task": task.name, "processed": processed}
+            )
 
-    def _task_store_data(
-        self, task: TaskDefinition, context: dict[str, Any]
-    ) -> TaskExecutionResult:
-        processed = context.get("outputs", {}).get("task2", {}).get("processed", [])
-        return TaskExecutionResult(
-            success=True,
-            output={"task": task.name, "stored_count": len(processed)},
-        )
-
-    def _task_default(self, task: TaskDefinition, context: dict[str, Any]) -> TaskExecutionResult:
-        return TaskExecutionResult(success=True, output={"task": task.name})
+        @self.handler("task3")
+        def store_data(task: TaskDefinition, context: dict[str, Any]) -> TaskExecutionResult:
+            processed = context.get("outputs", {}).get("task2", {}).get("processed", [])
+            return TaskExecutionResult(
+                success=True,
+                output={"task": task.name, "stored_count": len(processed)},
+            )
 
 
 class FlowStateMachine:
