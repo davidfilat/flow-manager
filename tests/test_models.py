@@ -3,6 +3,13 @@ from __future__ import annotations
 import pytest
 
 from flow_manager_task.models import FlowDefinition
+from flow_manager_task.validator import (
+    ConditionReferencesDefinedTasksRule,
+    FlowValidator,
+    Rule,
+    StartTaskDefinedRule,
+    UniqueTaskNamesRule,
+)
 
 
 def _base_payload(**overrides: object) -> dict:
@@ -17,6 +24,11 @@ def _base_payload(**overrides: object) -> dict:
     return payload
 
 
+# ---------------------------------------------------------------------------
+# FlowDefinition field-level validation (Pydantic)
+# ---------------------------------------------------------------------------
+
+
 def test_valid_flow_is_accepted() -> None:
     flow = FlowDefinition.model_validate(_base_payload())
     assert flow.id == "flow1"
@@ -26,6 +38,139 @@ def test_valid_flow_is_accepted() -> None:
 def test_empty_tasks_list_is_rejected() -> None:
     with pytest.raises(Exception, match="at least 1 item"):
         FlowDefinition.model_validate(_base_payload(tasks=[]))
+
+
+# ---------------------------------------------------------------------------
+# Rule protocol conformance
+# ---------------------------------------------------------------------------
+
+
+def test_all_rules_implement_rule_protocol() -> None:
+    rules = [UniqueTaskNamesRule(), StartTaskDefinedRule(), ConditionReferencesDefinedTasksRule()]
+    for rule in rules:
+        assert isinstance(rule, Rule)
+        assert isinstance(rule.description, str)
+
+
+# ---------------------------------------------------------------------------
+# Individual rules — unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_unique_task_names_rule_passes_for_distinct_names() -> None:
+    flow = FlowDefinition.model_validate(_base_payload(tasks=[{"name": "t1"}, {"name": "t2"}]))
+    assert UniqueTaskNamesRule().check(flow) == []
+
+
+def test_unique_task_names_rule_reports_duplicates() -> None:
+    from flow_manager_task.models import TaskDefinition
+
+    # Bypass model_validator to build a flow with duplicates for direct rule testing
+    flow = FlowDefinition.model_construct(
+        id="f",
+        name="f",
+        start_task="t1",
+        tasks=[TaskDefinition(name="t1"), TaskDefinition(name="t1")],
+        conditions=[],
+    )
+    errors = UniqueTaskNamesRule().check(flow)
+    assert len(errors) == 1
+    assert "t1" in errors[0]
+
+
+def test_start_task_defined_rule_passes() -> None:
+    flow = FlowDefinition.model_validate(_base_payload())
+    assert StartTaskDefinedRule().check(flow) == []
+
+
+def test_start_task_defined_rule_reports_missing() -> None:
+    from flow_manager_task.models import TaskDefinition
+
+    flow = FlowDefinition.model_construct(
+        id="f",
+        name="f",
+        start_task="ghost",
+        tasks=[TaskDefinition(name="t1", description="")],
+        conditions=[],
+    )
+    errors = StartTaskDefinedRule().check(flow)
+    assert len(errors) == 1
+    assert "ghost" in errors[0]
+
+
+def test_condition_rule_passes_for_valid_flow() -> None:
+    flow = FlowDefinition.model_validate(
+        _base_payload(
+            tasks=[{"name": "t1"}, {"name": "t2"}],
+            conditions=[
+                {
+                    "name": "c1",
+                    "source_task": "t1",
+                    "target_task_success": "t2",
+                    "target_task_failure": "end",
+                }
+            ],
+        )
+    )
+    assert ConditionReferencesDefinedTasksRule().check(flow) == []
+
+
+# ---------------------------------------------------------------------------
+# FlowValidator — collects ALL errors before raising
+# ---------------------------------------------------------------------------
+
+
+def test_validator_raises_with_all_errors_combined() -> None:
+    # Build without validation so we can test the validator in isolation
+    from flow_manager_task.models import ConditionDefinition, TaskDefinition
+
+    flow = FlowDefinition.model_construct(
+        id="f",
+        name="f",
+        start_task="t1",
+        tasks=[TaskDefinition(name="t1"), TaskDefinition(name="t2")],
+        conditions=[
+            ConditionDefinition(
+                name="c1",
+                source_task="t1",
+                target_task_success="nowhere",  # bad
+                target_task_failure="end",
+            ),
+            ConditionDefinition(
+                name="c2",
+                source_task="t2",
+                target_task_success="t1",
+                target_task_failure="also_nowhere",  # bad
+            ),
+        ],
+    )
+    with pytest.raises(ValueError) as exc_info:
+        FlowValidator().validate(flow)
+
+    message = str(exc_info.value)
+    assert "nowhere" in message
+    assert "also_nowhere" in message
+
+
+def test_validator_accepts_custom_rule_list() -> None:
+    class AlwaysOkRule:
+        description = "always passes"
+
+        def check(self, flow: FlowDefinition) -> list[str]:
+            return []
+
+    flow = FlowDefinition.model_validate(_base_payload())
+    FlowValidator(rules=[AlwaysOkRule()]).validate(flow)  # must not raise
+
+
+def test_validator_is_silent_for_valid_flow() -> None:
+    flow = FlowDefinition.model_validate(_base_payload())
+    FlowValidator().validate(flow)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# Integration — FlowDefinition.model_validate triggers validator
+# ---------------------------------------------------------------------------
 
 
 def test_start_task_not_in_tasks_is_rejected() -> None:

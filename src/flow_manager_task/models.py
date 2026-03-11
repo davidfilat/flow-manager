@@ -33,31 +33,7 @@ class FlowDefinition(BaseModel):
 
     @model_validator(mode="after")
     def validate_graph(self) -> FlowDefinition:
-        task_names_list = [task.name for task in self.tasks]
-        task_names = set(task_names_list)
+        from .validator import default_validator
 
-        duplicates = {n for n in task_names_list if task_names_list.count(n) > 1}
-        if duplicates:
-            raise ValueError(f"duplicate task names: {', '.join(sorted(duplicates))}")
-
-        if self.start_task not in task_names:
-            raise ValueError(f"start_task '{self.start_task}' is not defined in tasks")
-
-        valid_targets = task_names | {"end", "END_SUCCESS", "END_FAILED"}
-        for condition in self.conditions:
-            if condition.source_task not in task_names:
-                raise ValueError(
-                    f"condition '{condition.name}': source_task '{condition.source_task}'"
-                    " is not a defined task"
-                )
-            if condition.target_task_success not in valid_targets:
-                raise ValueError(
-                    f"condition '{condition.name}': target_task_success"
-                    f" '{condition.target_task_success}' is not a defined task or terminal"
-                )
-            if condition.target_task_failure not in valid_targets:
-                raise ValueError(
-                    f"condition '{condition.name}': target_task_failure"
-                    f" '{condition.target_task_failure}' is not a defined task or terminal"
-                )
+        default_validator.validate(self)
         return self
