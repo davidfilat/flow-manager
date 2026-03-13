@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from flow_manager_task.models import FlowDefinition
-from flow_manager_task.validator import (
+from flow_manager_task.domain.models import FlowDefinition
+from flow_manager_task.domain.validator import (
     ConditionReferencesDefinedTasksRule,
     FlowValidator,
     Rule,
@@ -63,7 +63,7 @@ def test_unique_task_names_rule_passes_for_distinct_names() -> None:
 
 
 def test_unique_task_names_rule_reports_duplicates() -> None:
-    from flow_manager_task.models import TaskDefinition
+    from flow_manager_task.domain.models import TaskDefinition
 
     # Bypass model_validator to build a flow with duplicates for direct rule testing
     flow = FlowDefinition.model_construct(
@@ -84,7 +84,7 @@ def test_start_task_defined_rule_passes() -> None:
 
 
 def test_start_task_defined_rule_reports_missing() -> None:
-    from flow_manager_task.models import TaskDefinition
+    from flow_manager_task.domain.models import TaskDefinition
 
     flow = FlowDefinition.model_construct(
         id="f",
@@ -122,7 +122,7 @@ def test_condition_rule_passes_for_valid_flow() -> None:
 
 def test_validator_raises_with_all_errors_combined() -> None:
     # Build without validation so we can test the validator in isolation
-    from flow_manager_task.models import ConditionDefinition, TaskDefinition
+    from flow_manager_task.domain.models import ConditionDefinition, TaskDefinition
 
     flow = FlowDefinition.model_construct(
         id="f",

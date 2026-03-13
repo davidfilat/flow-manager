@@ -4,9 +4,10 @@ import asyncio
 
 import pytest
 
-from flow_manager_task.engine import TaskExecutionResult, UnregisteredTaskError
-from flow_manager_task.models import FlowDefinition, RunStatus
-from flow_manager_task.service import FlowService
+from flow_manager_task.application.service import FlowService
+from flow_manager_task.domain.engine import UnregisteredTaskError
+from flow_manager_task.domain.models import FlowDefinition, RunStatus
+from flow_manager_task.domain.registry import TaskExecutionResult
 
 
 async def test_run_completes_successfully(flow_definition: FlowDefinition) -> None:

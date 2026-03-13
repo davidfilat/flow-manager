@@ -6,8 +6,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from flow_manager_task import api
-from flow_manager_task.models import FlowDefinition
-from flow_manager_task.service import FlowService
+from flow_manager_task.application.service import FlowService
+from flow_manager_task.domain.models import FlowDefinition
 
 
 @pytest.fixture

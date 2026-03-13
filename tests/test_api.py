@@ -5,7 +5,7 @@ import asyncio
 import pytest
 from httpx import AsyncClient
 
-from flow_manager_task.models import FlowDefinition
+from flow_manager_task.domain.models import FlowDefinition
 
 
 async def _wait_for_terminal(client: AsyncClient, run_id: str, *, timeout: float = 5.0) -> dict:
@@ -72,7 +72,7 @@ async def test_run_stops_on_task_failure(
     await api_client.post("/flows", json={"flow": flow_payload})
 
     from flow_manager_task import api
-    from flow_manager_task.engine import TaskExecutionResult
+    from flow_manager_task.domain.registry import TaskExecutionResult
 
     service = api.app.dependency_overrides[api.get_service]()
     service.task_runner.register("task1", lambda t, ctx: TaskExecutionResult(success=False))

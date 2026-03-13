@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from flow_manager_task.engine import EventType, FlowStateMachine, TaskExecutionResult, TaskRunner
-from flow_manager_task.models import FlowDefinition
+from flow_manager_task.domain.engine import EventType, FlowStateMachine, TaskRunner
+from flow_manager_task.domain.models import FlowDefinition
+from flow_manager_task.domain.registry import TaskExecutionResult
 
 
 def test_state_machine_follows_success_edge(flow_definition: FlowDefinition) -> None:
