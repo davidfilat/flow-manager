@@ -17,6 +17,4 @@ def register(runner: Registry) -> None:
         fetched = context.get("outputs", {}).get("task1", {}).get("data", {})
         records = fetched.get("records", [])
         processed = [value * 2 for value in records]
-        return TaskExecutionResult(
-            success=True, output={"task": task.name, "processed": processed}
-        )
+        return TaskExecutionResult(success=True, output={"task": task.name, "processed": processed})

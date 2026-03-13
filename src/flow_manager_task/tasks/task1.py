@@ -13,9 +13,7 @@ if TYPE_CHECKING:
 
 def register(runner: Registry) -> None:
     @runner.handler("task1")
-    def fetch_data(
-        task: TaskDefinition, context: dict[str, Any]
-    ) -> TaskExecutionResult:
+    def fetch_data(task: TaskDefinition, context: dict[str, Any]) -> TaskExecutionResult:
         logging.info(f"Executing task {task.name}")
 
         source = context.get("source", "sample-source")
