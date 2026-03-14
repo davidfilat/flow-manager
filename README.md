@@ -1,4 +1,4 @@
-# Flow Manager (State Machine Pattern)
+# Flow Manager
 
 This project implements a generic flow manager microservice in Python.
 
@@ -6,18 +6,27 @@ It uses:
 - explicit workflow states (each task is a state),
 - explicit transitions for success/failure,
 - event-driven execution (`TASK_SUCCEEDED` and `TASK_FAILED`),
-- persisted run state/history for resume/retry behavior.
+- async execution with immediate 202 response and polling for status.
 
 ## Architecture
 
-Core components:
-- `State` and `Transition` in [engine.py](/Users/davidfilat/projects/flow-manager-task/src/flow_manager_task/engine.py)
-- `FlowStateMachine`: graph and transition resolution
-- `TransitionGuard`: hook for rule-based transitions (e.g., retries/timeouts)
-- `TaskRunner`: executes task implementations
-- `RunStore`: SQLite persistence for flows and runs
-- `FlowService`: orchestration layer
-- FastAPI app endpoints in [api.py](/Users/davidfilat/projects/flow-manager-task/src/flow_manager_task/api.py)
+The codebase is organized into three layers:
+
+```
+src/flow_manager_task/
+├── domain/          # Core logic: models, state machine, task runner, validator
+├── application/     # Orchestration: FlowService, run schemas
+├── api/             # HTTP layer: FastAPI routes, request schemas
+└── tasks/           # Built-in task implementations (auto-registered)
+```
+
+Key components:
+- `domain.models` — `FlowDefinition`, `TaskDefinition`, `ConditionDefinition`, `RunStatus`
+- `domain.validator` — `FlowValidator` with pluggable `Rule` implementations
+- `domain.engine` — `FlowStateMachine` for transition resolution, `TaskRunner` for dispatch
+- `domain.registry` — `Registry` for handler registration, `TaskExecutionResult`
+- `application.service` — `FlowService` orchestrates async execution and run state
+- `api.routes` — FastAPI app with register/run/poll endpoints
 
 ### Task dependency model
 
@@ -25,35 +34,37 @@ Core components:
 - A condition defines two outgoing edges from a source task:
   - success edge (`TASK_SUCCEEDED`)
   - failure edge (`TASK_FAILED`)
-- A run starts at `flow.start_task` and stops in terminal states:
+- A run starts at `flow.start_task` and stops at terminal states:
   - `END_SUCCESS`
   - `END_FAILED`
 
-### Success/failure evaluation
+### Async execution
 
-- `TaskRunner.execute(...)` returns `TaskExecutionResult(success: bool, output, error)`.
-- `success=True` emits `TASK_SUCCEEDED`; `success=False` emits `TASK_FAILED`.
-- The state machine resolves the next state from explicit transitions.
-- Every step is appended to run `history` with timestamp, event, source and target state.
+- `POST /flows/run` returns `202` immediately with a `run_id`.
+- The flow executes in the background; tasks run in a thread pool executor.
+- Poll `GET /flows/runs/{run_id}` until `status` is no longer `RUNNING`.
 
-### Behavior on task outcomes
+### Adding task handlers
 
-- If a task succeeds, execution follows the success transition.
-- If a task fails, execution follows the failure transition (usually to `END_FAILED`).
-- If `max_steps` is provided when starting/resuming a run, execution pauses with `PAUSED` status once the step budget is reached.
-- Runs can be resumed via `POST /runs/{id}/resume`.
+Task handlers live in `tasks/` and are auto-registered at startup. Each module exposes a `register(runner)` function:
+
+```python
+def register(runner: Registry) -> None:
+    @runner.handler("my_task")
+    def my_task(task: TaskDefinition, context: dict[str, Any]) -> TaskExecutionResult:
+        ...
+        return TaskExecutionResult(success=True, output={"result": ...})
+```
 
 ## API
 
-- `POST /flows` create flow graph
-- `POST /runs` start execution
-- `POST /runs/{id}/resume` continue a paused/in-progress run
-- `GET /runs/{id}` inspect current state and audit history
+- `POST /flows` — register a flow definition
+- `POST /flows/run` — start an async run, returns `run_id`
+- `GET /flows/runs/{run_id}` — poll run status and outputs
 
 ## Setup and run (using uv)
 
 ```bash
-cd /Users/davidfilat/projects/flow-manager-task
 uv sync
 uv run flow-manager-task
 ```
@@ -66,7 +77,6 @@ Interactive docs: `http://localhost:8000/docs`.
 Install dev tooling and hooks:
 
 ```bash
-cd /Users/davidfilat/projects/flow-manager-task
 uv sync --dev
 uv run pre-commit install
 ```
@@ -82,8 +92,6 @@ uv run pre-commit run --all-files
 ```
 
 ## Example flow payload
-
-Use this JSON body for `POST /flows`:
 
 ```json
 {
@@ -126,25 +134,16 @@ Use this JSON body for `POST /flows`:
 ## Start a run
 
 ```bash
-curl -X POST http://localhost:8000/runs \
+# Register the flow
+curl -X POST http://localhost:8000/flows \
   -H 'Content-Type: application/json' \
-  -d '{
-    "flow_id": "flow123",
-    "input": {
-      "source": "demo-api"
-    }
-  }'
-```
+  -d '{ "flow": { ... } }'
 
-To force a task failure for testing:
+# Start a run
+curl -X POST http://localhost:8000/flows/run \
+  -H 'Content-Type: application/json' \
+  -d '{ "flow_id": "flow123", "input": { "source": "demo-api" } }'
 
-```json
-{
-  "flow_id": "flow123",
-  "input": {
-    "task_outcomes": {
-      "task2": false
-    }
-  }
-}
+# Poll for completion
+curl http://localhost:8000/flows/runs/{run_id}
 ```
