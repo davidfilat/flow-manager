@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from ..application.schemas import RunStartedResponse, RunStatusResponse
 from ..application.service import FlowService
 from ..domain.engine import UnregisteredTaskError
+from ..domain.validator import FlowValidationError
 from .schemas import (
     RegisterFlowRequest,
     RegisterFlowResponse,
@@ -16,6 +19,16 @@ from .schemas import (
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="Flow Manager", version="0.1.0")
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    for error in exc.errors():
+        cause = error.get("ctx", {}).get("error")
+        if isinstance(cause, FlowValidationError):
+            return JSONResponse(status_code=422, content={"errors": cause.errors})
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
 
 _service = FlowService()
 
