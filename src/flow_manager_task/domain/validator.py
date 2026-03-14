@@ -6,6 +6,12 @@ if TYPE_CHECKING:
     from .models import FlowDefinition
 
 
+class FlowValidationError(ValueError):
+    def __init__(self, errors: list[str]) -> None:
+        self.errors = errors
+        super().__init__(errors)
+
+
 @runtime_checkable
 class Rule(Protocol):
     description: str
@@ -77,7 +83,7 @@ class FlowValidator:
         for rule in self.rules:
             errors.extend(rule.check(flow))
         if errors:
-            raise ValueError("\n".join(errors))
+            raise FlowValidationError(errors)
 
 
 default_validator = FlowValidator()
