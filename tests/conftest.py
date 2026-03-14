@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from unittest.mock import patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -55,6 +56,12 @@ def flow_payload() -> dict:
 @pytest.fixture
 def flow_definition(flow_payload: dict) -> FlowDefinition:
     return FlowDefinition.model_validate(flow_payload)
+
+
+@pytest.fixture(autouse=True)
+def mock_task1_sleep() -> AsyncGenerator[None, None]:
+    with patch("flow_manager_task.tasks.task1.time.sleep"):
+        yield
 
 
 @pytest.fixture

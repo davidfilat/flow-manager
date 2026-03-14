@@ -18,7 +18,7 @@ def register(runner: Registry) -> None:
 
         source = context.get("source", "sample-source")
         payload = {"records": [1, 2, 3], "source": source}
-        time.sleep(60)  # Sleep for one minute to test async processing
+        time.sleep(30)  # simulate long-running I/O
         return TaskExecutionResult(
             success=True,
             output={"task": task.name, "data": payload},
