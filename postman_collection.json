@@ -1,0 +1,167 @@
+{
+  "info": {
+    "name": "Flow Manager Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Flow Manager",
+      "item": [
+        {
+          "name": "POST /flows",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:8000/flows",
+              "query": null,
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8000",
+              "path": [
+                "flows"
+              ]
+            },
+            "description": "",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "description": null
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "disabled": false,
+              "raw": "{\"flow\":{\"id\":\"flow123\",\"name\":\"Data processing flow\",\"start_task\":\"task1\",\"tasks\":[{\"name\":\"task1\",\"description\":\"Fetch data\"},{\"name\":\"task2\",\"description\":\"Process data\"},{\"name\":\"task3\",\"description\":\"Store data\"}],\"conditions\":[{\"name\":\"condition_task1_result\",\"description\":\"Evaluate the result of task1. If successful, proceed to task2; otherwise, end the flow.\",\"source_task\":\"task1\",\"outcome\":\"success\",\"target_task_success\":\"task2\",\"target_task_failure\":\"end\"},{\"name\":\"condition_task2_result\",\"description\":\"Evaluate the result of task2. If successful, proceed to task3; otherwise, end the flow.\",\"source_task\":\"task2\",\"outcome\":\"success\",\"target_task_success\":\"task3\",\"target_task_failure\":\"end\"}]}}"
+            },
+            "auth": null
+          },
+          "protocolProfileBehavior": {
+            "followRedirects": false,
+            "followOriginalHttpMethod": false,
+            "followAuthorizationHeader": false
+          },
+          "response": []
+        },
+        {
+          "name": "POST /flows (corrupt flow)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:8000/flows",
+              "query": null,
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8000",
+              "path": [
+                "flows"
+              ]
+            },
+            "description": "",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "description": null
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "disabled": false,
+              "raw": "{\"flow\":{\"id\":\"flow123\",\"name\":\"Data processing flow\",\"start_task\":\"task11\",\"tasks\":[{\"name\":\"task1\",\"description\":\"Fetch data\"},{\"name\":\"task21\",\"description\":\"Process data\"},{\"name\":\"task3\",\"description\":\"Store data\"}],\"conditions\":[{\"name\":\"condition_task1_result\",\"description\":\"Evaluate the result of task1. If successful, proceed to task2; otherwise, end the flow.\",\"source_task\":\"task1\",\"outcome\":\"success\",\"target_task_success\":\"task5\",\"target_task_failure\":\"end\"},{\"name\":\"condition_task2_result\",\"description\":\"Evaluate the result of task2. If successful, proceed to task3; otherwise, end the flow.\",\"source_task\":\"task2\",\"outcome\":\"success\",\"target_task_success\":\"task3\",\"target_task_failure\":\"end\"}]}}"
+            },
+            "auth": null
+          },
+          "protocolProfileBehavior": {
+            "followRedirects": false,
+            "followOriginalHttpMethod": false,
+            "followAuthorizationHeader": false
+          },
+          "response": []
+        },
+        {
+          "name": "POST /flows/runs",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:8000/flows/run",
+              "query": null,
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8000",
+              "path": [
+                "flows",
+                "run"
+              ]
+            },
+            "description": "",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "description": null
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "disabled": false,
+              "raw": "{\"flow_id\":\"flow123\"}"
+            },
+            "auth": null
+          },
+          "protocolProfileBehavior": {
+            "followRedirects": false,
+            "followOriginalHttpMethod": false,
+            "followAuthorizationHeader": false
+          },
+          "response": []
+        },
+        {
+          "name": "GET /flows/runs/{run_id}",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8000/flows/runs/e33a3e69-5601-4bd6-848f-a1638ebc30ad",
+              "query": null,
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8000",
+              "path": [
+                "flows",
+                "runs",
+                "e33a3e69-5601-4bd6-848f-a1638ebc30ad"
+              ]
+            },
+            "description": "",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "disabled": false,
+              "raw": "{\n    \"flow_id\": \"flow123\"\n}"
+            },
+            "auth": null
+          },
+          "protocolProfileBehavior": {
+            "followRedirects": false,
+            "followOriginalHttpMethod": false,
+            "followAuthorizationHeader": false
+          },
+          "response": []
+        }
+      ],
+      "protocolProfileBehavior": null,
+      "response": []
+    }
+  ]
+}
