@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from .models import RunStatus
+
 if TYPE_CHECKING:
     from .models import FlowDefinition
 
@@ -9,7 +11,7 @@ if TYPE_CHECKING:
 class FlowValidationError(ValueError):
     def __init__(self, errors: list[str]) -> None:
         self.errors = errors
-        super().__init__(errors)
+        super().__init__("\n".join(errors))
 
 
 @runtime_checkable
@@ -49,7 +51,7 @@ class ConditionReferencesDefinedTasksRule:
 
     def check(self, flow: FlowDefinition) -> list[str]:
         task_names = {task.name for task in flow.tasks}
-        valid_targets = task_names | {"end", "END_SUCCESS", "END_FAILED"}
+        valid_targets = task_names | {"end", RunStatus.END_SUCCESS, RunStatus.END_FAILED}
         errors: list[str] = []
         for condition in flow.conditions:
             if condition.source_task not in task_names:

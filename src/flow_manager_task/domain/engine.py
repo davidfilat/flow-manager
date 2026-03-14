@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any
 
 from .models import FlowDefinition, RunStatus, TaskDefinition
@@ -12,7 +13,7 @@ class UnregisteredTaskError(ValueError):
     pass
 
 
-class EventType:
+class EventType(StrEnum):
     TASK_SUCCEEDED = "TASK_SUCCEEDED"
     TASK_FAILED = "TASK_FAILED"
 
@@ -54,41 +55,46 @@ class FlowStateMachine:
     def __init__(self, flow: FlowDefinition) -> None:
         self.flow = flow
         self.states = self._build_states(flow)
-        self._by_source: dict[str, dict[str, str]] = {}
-        for condition in flow.conditions:
-            self._by_source.setdefault(condition.source_task, {})[EventType.TASK_SUCCEEDED] = (
-                self._normalize(condition.target_task_success, failure_edge=False)
-            )
-            self._by_source.setdefault(condition.source_task, {})[EventType.TASK_FAILED] = (
-                self._normalize(condition.target_task_failure, failure_edge=True)
-            )
-
-    @staticmethod
-    def _normalize(target: str, failure_edge: bool = False) -> str:
-        if target.strip() == "end":
-            return "END_FAILED" if failure_edge else "END_SUCCESS"
-        return target.strip()
+        self._transitions = self._build_transitions(flow)
 
     def _build_states(self, flow: FlowDefinition) -> dict[str, State]:
         states: dict[str, State] = {
             task.name: State(name=task.name, task=task) for task in flow.tasks
         }
-        states["END_SUCCESS"] = State(
-            name="END_SUCCESS", is_terminal=True, status_on_enter=RunStatus.END_SUCCESS
+        states[RunStatus.END_SUCCESS] = State(
+            name=RunStatus.END_SUCCESS, is_terminal=True, status_on_enter=RunStatus.END_SUCCESS
         )
-        states["END_FAILED"] = State(
-            name="END_FAILED", is_terminal=True, status_on_enter=RunStatus.END_FAILED
+        states[RunStatus.END_FAILED] = State(
+            name=RunStatus.END_FAILED, is_terminal=True, status_on_enter=RunStatus.END_FAILED
         )
         return states
+
+    def _build_transitions(self, flow: FlowDefinition) -> dict[str, dict[EventType, str]]:
+        transitions: dict[str, dict[EventType, str]] = {}
+        for condition in flow.conditions:
+            transitions[condition.source_task] = {
+                EventType.TASK_SUCCEEDED: self._resolve_target(
+                    condition.target_task_success, event=EventType.TASK_SUCCEEDED
+                ),
+                EventType.TASK_FAILED: self._resolve_target(
+                    condition.target_task_failure, event=EventType.TASK_FAILED
+                ),
+            }
+        return transitions
+
+    def _resolve_target(self, target: str, event: EventType) -> str:
+        if target.strip() != "end":
+            return target.strip()
+        return RunStatus.END_SUCCESS if event is EventType.TASK_SUCCEEDED else RunStatus.END_FAILED
 
     def initial_state(self) -> str:
         return self.flow.start_task
 
-    def transition(self, state_name: str, event: str) -> str:
-        target = self._by_source.get(state_name, {}).get(event)
+    def transition(self, state_name: str, event: EventType) -> str:
+        target = self._transitions.get(state_name, {}).get(event)
         if target is not None:
             return target
-        return "END_SUCCESS" if event == EventType.TASK_SUCCEEDED else "END_FAILED"
+        return RunStatus.END_SUCCESS if event is EventType.TASK_SUCCEEDED else RunStatus.END_FAILED
 
     def state(self, name: str) -> State:
         state = self.states.get(name)
